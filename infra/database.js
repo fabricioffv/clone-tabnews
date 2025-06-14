@@ -22,6 +22,7 @@ import { Pool, Client } from "pg";
 // }
 
 async function query(queryObject) {
+  console.log("SSL values", getSSLValues());
   const client = new Client({
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
@@ -44,13 +45,13 @@ async function query(queryObject) {
 }
 
 const getSSLValues = () => {
-  if (process.env.NODE_ENV === "development") return false;
-
   if (process.env.POSTGRES_CA) {
     return {
       ca: process.env.POSTGRES_CA,
     };
   }
+
+  if (process.env.NODE_ENV === "development") return false;
 
   return true;
 };
