@@ -1,4 +1,4 @@
-import { Pool, Client } from "pg";
+import { Client } from "pg";
 
 // const pool = new Pool({
 //   host: process.env.POSTGRES_HOST,
@@ -60,7 +60,9 @@ async function getNewClient() {
   return client;
 }
 
-export default {
+const database = {
   query,
   getNewClient,
 };
+
+export default database;
