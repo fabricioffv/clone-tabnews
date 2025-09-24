@@ -1,6 +1,6 @@
-import { createRouter } from "next-connect";
 import database from "infra/database.js";
-import { InternalServerError, MethodNotAllowedError } from "/infra/errors";
+import { onNoMatchHandler, onErrorHandler } from "/infra/handlerUtils";
+import { createRouter } from "next-connect";
 
 const router = createRouter();
 
@@ -10,22 +10,6 @@ export default router.handler({
   onNoMatch: onNoMatchHandler,
   onError: onErrorHandler,
 });
-
-function onErrorHandler(error, _, res) {
-  const publicErrorObject = new InternalServerError({
-    cause: error,
-  });
-
-  console.log("\n Erro dentro do catch do next-connect");
-  console.error(publicErrorObject);
-
-  res.status(500).json(publicErrorObject);
-}
-
-function onNoMatchHandler(_, res) {
-  const publicErrorObject = new MethodNotAllowedError();
-  res.status(publicErrorObject.statusCode).json(publicErrorObject);
-}
 
 async function getHandler(_, response) {
   const pgVersionQuery = await database.query("SHOW server_version;");
