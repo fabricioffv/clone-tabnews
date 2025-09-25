@@ -1,4 +1,5 @@
 import { Client } from "pg";
+import { ServiceError } from "./errors.js";
 
 // const pool = new Pool({
 //   host: process.env.POSTGRES_HOST,
@@ -28,9 +29,11 @@ async function query(queryObject) {
     const result = await client.query(queryObject);
     return result;
   } catch (error) {
-    console.log("\n Erro dentro do catch do database.js");
-    console.error(error);
-    throw error;
+    const serviceError = new ServiceError({
+      message: "Error na conexão com o Banco ou na Query",
+      cause: error,
+    });
+    throw serviceError;
   } finally {
     await client?.end();
   }
