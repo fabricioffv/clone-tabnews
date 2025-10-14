@@ -105,11 +105,20 @@ export async function update(username, userInputValues) {
   const currentUser = await findOneByUsername(username);
 
   if ("username" in userInputValues) {
-    await validateUniqueUsername(userInputValues.username);
+    if (
+      userInputValues.username.toLowerCase() !==
+      currentUser.username.toLowerCase()
+    ) {
+      await validateUniqueUsername(userInputValues.username);
+    }
   }
 
   if ("email" in userInputValues) {
-    await validateUniqueEmail(userInputValues.email);
+    if (
+      userInputValues.email.toLowerCase() !== currentUser.email.toLowerCase()
+    ) {
+      await validateUniqueEmail(userInputValues.email);
+    }
   }
 
   if ("password" in userInputValues) {
