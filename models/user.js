@@ -1,5 +1,6 @@
 import database from "infra/database.js";
 import { ValidationError, NotFoundError } from "infra/errors.js";
+import * as password from "./password.js";
 
 export async function findOneByUsername(username) {
   const userFound = await runSelectQuery(username);
@@ -29,9 +30,56 @@ export async function findOneByUsername(username) {
   }
 }
 
+async function validateUniqueUsername(username) {
+  const results = await database.query({
+    text: `
+      SELECT
+        username
+      FROM users
+      WHERE
+        LOWER(username) = LOWER($1)
+      `,
+    values: [username],
+  });
+
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      message: "O username informado já está sendo utilizado",
+      action: "Utilize outro username para esta operação",
+    });
+  }
+}
+
+async function validateUniqueEmail(email) {
+  const results = await database.query({
+    text: `
+      SELECT
+        email
+      FROM users
+      WHERE
+        LOWER(email) = LOWER($1)
+      `,
+    values: [email],
+  });
+
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      message: "O email informado já está sendo utilizado",
+      action: "Utilize outro email para realizar esta operação",
+    });
+  }
+}
+
+async function hashPasswordInObject(userInputValues) {
+  const hashedPassword = await password.hash(userInputValues.password);
+  userInputValues.password = hashedPassword;
+}
+
 export async function create(userInputValues) {
   await validateUniqueEmail(userInputValues.email);
   await validateUniqueUsername(userInputValues.username);
+  await hashPasswordInObject(userInputValues);
+
   const newUsers = await runInsertQuery(userInputValues);
   return newUsers;
 
@@ -51,44 +99,62 @@ export async function create(userInputValues) {
     });
     return results.rows[0];
   }
+}
 
-  async function validateUniqueEmail(email) {
-    const results = await database.query({
-      text: `
-      SELECT
-        email
-      FROM users
-      WHERE
-        LOWER(email) = LOWER($1)
-      `,
-      values: [email],
-    });
+export async function update(username, userInputValues) {
+  const currentUser = await findOneByUsername(username);
 
-    if (results.rowCount > 0) {
-      throw new ValidationError({
-        message: "O email informado já está sendo utilizado",
-        action: "Utilize outro email para realizar o cadastro",
-      });
+  if ("username" in userInputValues) {
+    if (
+      userInputValues.username.toLowerCase() !==
+      currentUser.username.toLowerCase()
+    ) {
+      await validateUniqueUsername(userInputValues.username);
     }
   }
 
-  async function validateUniqueUsername(username) {
-    const results = await database.query({
-      text: `
-      SELECT
-        username
-      FROM users
-      WHERE
-        LOWER(username) = LOWER($1)
-      `,
-      values: [username],
-    });
-
-    if (results.rowCount > 0) {
-      throw new ValidationError({
-        message: "O username informado já está sendo utilizado",
-        action: "Utilize outro username para realizar o cadastro",
-      });
+  if ("email" in userInputValues) {
+    if (
+      userInputValues.email.toLowerCase() !== currentUser.email.toLowerCase()
+    ) {
+      await validateUniqueEmail(userInputValues.email);
     }
   }
+
+  if ("password" in userInputValues) {
+    await hashPasswordInObject(userInputValues);
+  }
+
+  const userWithNewValues = {
+    ...currentUser,
+    ...userInputValues,
+  };
+
+  const updatedUser = await runUpdateQuery(userWithNewValues);
+  return updatedUser;
+}
+
+async function runUpdateQuery(userWithNewValues) {
+  const results = await database.query({
+    text: `
+      UPDATE
+        users
+      SET
+        username = $2,
+        email = $3,
+        password = $4,
+        updated_at = timezone('utc', now())
+      WHERE
+        id = $1
+      RETURNING *
+    `,
+    values: [
+      userWithNewValues.id,
+      userWithNewValues.username,
+      userWithNewValues.email,
+      userWithNewValues.password,
+    ],
+  });
+
+  return results.rows[0];
 }
